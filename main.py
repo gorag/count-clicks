@@ -5,26 +5,21 @@ import requests
 from dotenv import load_dotenv
 
 
-def get_headers(token):
-        return {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-        }
-
-
 def shorten_link(token, long_url):
     url = 'https://api-ssl.bitly.com/v4/shorten'
 
-    data = {
+    json_long_url = {
         'long_url': long_url
     }
 
-    headers = get_headers(token)
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
 
     response = requests.post(
         url=url,
         headers=headers,
-        json=data,
+        json=json_long_url,
         timeout=1)
         
     response.raise_for_status()
@@ -32,25 +27,38 @@ def shorten_link(token, long_url):
 
 
 def count_clicks(token, link):
-    url_parsed = urlparse(link)
+    parsed_url = urlparse(link)
+    api_url = f'https://api-ssl.bitly.com/v4/bitlinks/bit.ly{parsed_url.path}/clicks/summary'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
 
-    if url_parsed.netloc == 'bit.ly':
-        url = f'https://api-ssl.bitly.com/v4/bitlinks/bit.ly{url_parsed.path}/clicks/summary'
-        
-        headers = get_headers(token)
+    response = requests.get(
+        url=api_url,
+        headers=headers,
+        timeout=1
+    )
 
-        response = requests.get(
-            url=url,
-            headers=headers,
-            timeout=1
-        )
-
-        response.raise_for_status()
-        return response.json()['total_clicks']
+    response.raise_for_status()
+    return response.json()['total_clicks']
 
 
-def is_bitlink(url):
-     return urlparse(url).netloc == 'bit.ly'
+def is_bitlink(token, url):
+    parsed_url = urlparse(url)
+    api_url = f'https://api-ssl.bitly.com/v4/bitlinks/bit.ly{parsed_url.path}'
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.get(
+        url=api_url,
+        headers=headers,
+        timeout=1
+    )
+    print(response.json())
+    return response.ok
 
 
 if __name__ == '__main__':
@@ -59,15 +67,17 @@ if __name__ == '__main__':
 
     user_input = input('Введите ссылку: ')
     
-    if is_bitlink(user_input):
+    if is_bitlink(token=token, url=user_input):
         try:
             clicks_count = count_clicks(token=token, link=user_input)
         except requests.exceptions.HTTPError:
-            exit('Введите правильный битлинк')
-        print(f'По вашей ссылке прошли: {clicks_count} раз(а)')
+            print('Введите правильный битлинк')
+        else:
+            print(f'По вашей ссылке прошли: {clicks_count} раз(а)')
     else:
         try:
             bitlink = shorten_link(token=token, long_url=user_input)
         except requests.exceptions.HTTPError:
-            exit('Введите правильную ссылку')
-        print(f'Ваш битлинк: {bitlink}')
+            print('Введите правильную ссылку')
+        else:
+            print(f'Ваш битлинк: {bitlink}')
